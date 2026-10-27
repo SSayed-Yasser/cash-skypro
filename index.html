@@ -1,0 +1,1988 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سكاي برو | Sky Pro - نظام إدارة المحافظ والكاش</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts (Cairo) -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Cairo', sans-serif; }
+        .num-en { font-family: system-ui, -apple-system, sans-serif; font-weight: 700; }
+        [x-cloak] { display: none !important; }
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col" x-data="skyProApp()" x-init="initApp()">
+
+    <!-- TOP HEADER -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm no-print">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3 space-x-reverse">
+                <div class="bg-blue-600 text-white p-2 rounded-xl shadow-md font-extrabold text-xl tracking-wider">
+                    SKY PRO
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-800 leading-tight">سكاي برو - إدارة الكاش والخدمات</h1>
+                    <p class="text-xs text-slate-500 font-semibold" x-text="'التاريخ: ' + currentDateStr"></p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2 space-x-reverse">
+                <template x-if="currentMode === 'cashier'">
+                    <button @click="openAdminAuth()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition shadow">
+                        <i data-lucide="lock" class="w-4 h-4"></i>
+                        لوحة الإدارة
+                    </button>
+                </template>
+                <template x-if="currentMode === 'admin'">
+                    <div class="flex items-center gap-2">
+                        <button @click="currentMode = 'cashier'" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition shadow">
+                            <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+                            واجهة الكاشير
+                        </button>
+                        <button @click="logoutAdmin()" class="bg-rose-100 text-rose-700 hover:bg-rose-200 px-3 py-2 rounded-lg font-bold text-sm transition">
+                            خروج
+                        </button>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-3 md:p-5">
+
+        <!-- ==================== 1. CASHIER VIEW (واجهة الكاشير) ==================== -->
+        <div x-show="currentMode === 'cashier'" class="space-y-4">
+            
+            <!-- FAST STATS STRIP -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-slate-500 font-bold">المحافظ والخطوط</p>
+                        <p class="text-lg font-black text-blue-600 num-en" x-text="wallets.length + ' خط/ماكينة'"></p>
+                    </div>
+                    <div class="p-2 bg-blue-50 text-blue-600 rounded-lg"><i data-lucide="smartphone" class="w-5 h-5"></i></div>
+                </div>
+                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-slate-500 font-bold">المتوقع بالدرج</p>
+                        <p class="text-lg font-black text-emerald-600 num-en" x-text="formatMoney(calculateExpectedDrawerCash()) + ' ج'"></p>
+                    </div>
+                    <div class="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><i data-lucide="wallet" class="w-5 h-5"></i></div>
+                </div>
+                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-slate-500 font-bold">أرباح الشيفت الحالي</p>
+                        <p class="text-lg font-black text-amber-600 num-en" x-text="formatMoney(calculateCurrentShiftProfit()) + ' ج'"></p>
+                    </div>
+                    <div class="p-2 bg-amber-50 text-amber-600 rounded-lg"><i data-lucide="trending-up" class="w-5 h-5"></i></div>
+                </div>
+                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-slate-500 font-bold">عمليات اليوم</p>
+                        <p class="text-lg font-black text-purple-600 num-en" x-text="getTodayTransactions().length + ' عملية'"></p>
+                    </div>
+                    <div class="p-2 bg-purple-50 text-purple-600 rounded-lg"><i data-lucide="receipt" class="w-5 h-5"></i></div>
+                </div>
+            </div>
+
+            <!-- SPLIT SCREEN CASHIER PANELS -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                
+                <!-- LEFT PANEL: DEPOSIT (إيداع) -->
+                <div class="bg-white rounded-2xl border-2 border-emerald-500/30 p-4 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                            <span class="bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded-full text-sm flex items-center gap-1">
+                                <i data-lucide="arrow-down-left" class="w-4 h-4"></i> إيداع (العميل يدفع كاش)
+                            </span>
+                            <span class="text-xs font-bold text-slate-400">عمولة تلقائية 0.5% وقابلة للتعديل</span>
+                        </div>
+
+                        <!-- LINE SELECT & PIN -->
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">اختر الخط/المحفظة للإيداع:</label>
+                                <div class="flex gap-2">
+                                    <select x-model="cashierDeposit.walletId" @change="onDepositWalletChange()" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 text-sm focus:ring-2 focus:ring-emerald-500">
+                                        <option value="">-- اختر المحفظة --</option>
+                                        <template x-for="w in activeWallets" :key="w.id">
+                                            <option :value="w.id" x-text="w.name + ' (' + w.phone + ') - رصيد: ' + w.balance + ' ج'"></option>
+                                        </template>
+                                    </select>
+                                    <button @click="togglePinWallet('deposit')" :class="pinnedDepositWalletId === cashierDeposit.walletId ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-700'" class="px-3 rounded-xl font-bold text-xs flex items-center gap-1 transition" title="تثبيت هذا الخط كافتراضي للإيداع">
+                                        <i data-lucide="pin" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- AMOUNT INPUT -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">مبلغ الإيداع (ج):</label>
+                                    <input type="number" x-model.number="cashierDeposit.amount" @input="calculateDepositFee()" placeholder="0.00" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-base font-black text-slate-800 num-en focus:ring-2 focus:ring-emerald-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">العمولة/الفائدة (قابل للتعديل):</label>
+                                    <input type="number" x-model.number="cashierDeposit.fee" class="w-full bg-emerald-50 border border-emerald-300 rounded-xl p-2.5 text-base font-black text-emerald-800 num-en focus:ring-2 focus:ring-emerald-500">
+                                </div>
+                            </div>
+
+                            <!-- OPTIONAL CUSTOMER INFO -->
+                            <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-500 mb-1">اسم العميل (اختياري):</label>
+                                    <input type="text" x-model="cashierDeposit.customerName" placeholder="أدخل الاسم" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-500 mb-1">آخر 3 أرقام (اختياري):</label>
+                                    <input type="text" maxlength="3" x-model="cashierDeposit.lastThree" placeholder="123" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold num-en">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SUBMIT DEPOSIT -->
+                    <div class="mt-5 pt-3 border-t border-slate-100 flex justify-between items-center">
+                        <div>
+                            <span class="text-xs text-slate-500 font-bold block">إجمالي المطلوب من العميل:</span>
+                            <span class="text-xl font-black text-emerald-600 num-en" x-text="formatMoney((cashierDeposit.amount || 0) + (cashierDeposit.fee || 0)) + ' ج'"></span>
+                        </div>
+                        <button @click="executeTransaction('deposit')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-emerald-200 transition flex items-center gap-2">
+                            <i data-lucide="check-circle" class="w-5 h-5"></i> تأفيذ الإيداع
+                        </button>
+                    </div>
+                </div>
+
+                <!-- RIGHT PANEL: WITHDRAWAL (سحب) -->
+                <div class="bg-white rounded-2xl border-2 border-rose-500/30 p-4 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                            <span class="bg-rose-100 text-rose-800 font-bold px-3 py-1 rounded-full text-sm flex items-center gap-1">
+                                <i data-lucide="arrow-up-right" class="w-4 h-4"></i> سحب (العميل يحول ونحن ندفع كاش)
+                            </span>
+                            <span class="text-xs font-bold text-slate-400">عمولة تلقائية 1.0% وقابلة للتعديل</span>
+                        </div>
+
+                        <!-- LINE SELECT & PIN -->
+                        <div class="space-y-3">
+                            <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">اختر المحفظة التي سيحوّل العميل إليها:</label>
+                                <div class="flex gap-2">
+                                    <select x-model="cashierWithdraw.walletId" @change="onWithdrawWalletChange()" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 text-sm focus:ring-2 focus:ring-rose-500">
+                                        <option value="">-- اختر المحفظة --</option>
+                                        <template x-for="w in activeWallets" :key="w.id">
+                                            <option :value="w.id" x-text="w.name + ' (' + w.phone + ') - رصيد: ' + w.balance + ' ج'"></option>
+                                        </template>
+                                    </select>
+                                    <button @click="togglePinWallet('withdraw')" :class="pinnedWithdrawWalletId === cashierWithdraw.walletId ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-700'" class="px-3 rounded-xl font-bold text-xs flex items-center gap-1 transition" title="تثبيت هذا الخط كافتراضي للسحب">
+                                        <i data-lucide="pin" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- AMOUNT INPUT -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">المبلغ المحوّل للمحفظة (ج):</label>
+                                    <input type="number" x-model.number="cashierWithdraw.amount" @input="calculateWithdrawFee()" placeholder="0.00" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-base font-black text-slate-800 num-en focus:ring-2 focus:ring-rose-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">العمولة/الفائدة (قابل للتعديل):</label>
+                                    <input type="number" x-model.number="cashierWithdraw.fee" class="w-full bg-rose-50 border border-rose-300 rounded-xl p-2.5 text-base font-black text-rose-800 num-en focus:ring-2 focus:ring-rose-500">
+                                </div>
+                            </div>
+
+                            <!-- OPTIONAL CUSTOMER INFO -->
+                            <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-500 mb-1">اسم العميل (اختياري):</label>
+                                    <input type="text" x-model="cashierWithdraw.customerName" placeholder="أدخل الاسم" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-500 mb-1">آخر 3 أرقام (اختياري):</label>
+                                    <input type="text" maxlength="3" x-model="cashierWithdraw.lastThree" placeholder="123" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold num-en">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SUBMIT WITHDRAWAL -->
+                    <div class="mt-5 pt-3 border-t border-slate-100 flex justify-between items-center">
+                        <div>
+                            <span class="text-xs text-slate-500 font-bold block">صافي المدفوع للعميل نقداً:</span>
+                            <span class="text-xl font-black text-rose-600 num-en" x-text="formatMoney(Math.max(0, (cashierWithdraw.amount || 0) - (cashierWithdraw.fee || 0))) + ' ج'"></span>
+                        </div>
+                        <button @click="executeTransaction('withdraw')" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-rose-200 transition flex items-center gap-2">
+                            <i data-lucide="check-circle" class="w-5 h-5"></i> تنفيذ السحب
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- TODAY TRANSACTIONS TABLE LOG -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                        <i data-lucide="history" class="w-5 h-5 text-blue-600"></i> سجل عمليات اليوم
+                    </h3>
+                    <input type="text" x-model="cashierSearch" placeholder="بحث باسم العميل، المحفظة، أو الرقم..." class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold w-64">
+                </div>
+
+                <div class="overflow-x-auto max-h-64">
+                    <table class="w-full text-right text-xs">
+                        <thead class="bg-slate-100 text-slate-600 sticky top-0 font-bold">
+                            <tr>
+                                <th class="p-2.5">الوقت والتاريخ</th>
+                                <th class="p-2.5">النوع</th>
+                                <th class="p-2.5">المحفظة / الخط</th>
+                                <th class="p-2.5">العميل</th>
+                                <th class="p-2.5">آخر 3 أرقام</th>
+                                <th class="p-2.5">المبلغ</th>
+                                <th class="p-2.5">العمولة</th>
+                                <th class="p-2.5 text-center">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <template x-for="t in filteredTodayTransactions" :key="t.id">
+                                <tr class="hover:bg-slate-50 font-bold">
+                                    <td class="p-2.5 text-slate-500 num-en" x-text="t.datetime"></td>
+                                    <td class="p-2.5">
+                                        <span :class="t.type === 'deposit' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'" class="px-2 py-0.5 rounded-full text-[10px]" x-text="t.type === 'deposit' ? 'إيداع' : 'سحب'"></span>
+                                    </td>
+                                    <td class="p-2.5 text-slate-800" x-text="getWalletName(t.walletId)"></td>
+                                    <td class="p-2.5 text-slate-700" x-text="t.customerName || '-'"></td>
+                                    <td class="p-2.5 text-slate-500 num-en" x-text="t.lastThree || '-'"></td>
+                                    <td class="p-2.5 text-slate-900 num-en" x-text="formatMoney(t.amount) + ' ج'"></td>
+                                    <td class="p-2.5 text-amber-600 num-en" x-text="formatMoney(t.fee) + ' ج'"></td>
+                                    <td class="p-2.5 text-center">
+                                        <div class="flex justify-center gap-1">
+                                            <button @click="printReceipt(t)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 p-1.5 rounded-lg" title="طباعة"><i data-lucide="printer" class="w-3.5 h-3.5"></i></button>
+                                            <button @click="editTransaction(t)" class="text-blue-600 hover:text-blue-800 p-1.5" title="تعديل"><i data-lucide="edit" class="w-3.5 h-3.5"></i></button>
+                                            <button @click="deleteTransaction(t)" class="text-rose-600 hover:text-rose-800 p-1.5" title="حذف"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                            <template x-if="filteredTodayTransactions.length === 0">
+                                <tr>
+                                    <td colspan="8" class="p-4 text-center text-slate-400 font-bold">لا توجد عمليات مسجلة حتى الآن</td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ==================== 2. ADMIN VIEW (لوحة الإدارة) ==================== -->
+        <div x-show="currentMode === 'admin'" class="space-y-4">
+            
+            <!-- ADMIN NAVIGATION TABS -->
+            <div class="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-2">
+                <button @click="adminTab = 'closing'" :class="adminTab === 'closing' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" class="px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition">
+                    <i data-lucide="calculator" class="w-4 h-4"></i> 1. تقفيل اليوم والتسوية
+                </button>
+                <button @click="adminTab = 'wallets'" :class="adminTab === 'wallets' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" class="px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition">
+                    <i data-lucide="smartphone" class="w-4 h-4"></i> 2. إدارة المحافظ والمكن
+                </button>
+                <button @click="adminTab = 'vouchers'" :class="adminTab === 'vouchers' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" class="px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition">
+                    <i data-lucide="file-text" class="w-4 h-4"></i> 3. سندات القبض والصرف
+                </button>
+                <button @click="adminTab = 'debts'" :class="adminTab === 'debts' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" class="px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition">
+                    <i data-lucide="users" class="w-4 h-4"></i> 4. كشف حسابات العملاء (الآجل)
+                </button>
+                <button @click="adminTab = 'reports'" :class="adminTab === 'reports' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" class="px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i> 5. تقارير الأرباح والأداء
+                </button>
+                <button @click="adminTab = 'walletReports'" :class="adminTab === 'walletReports' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" class="px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition">
+                    <i data-lucide="smartphone" class="w-4 h-4"></i> 6. تقارير الخطوط
+                </button>
+                <button @click="adminTab = 'backup'" :class="adminTab === 'backup' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" class="px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition">
+                    <i data-lucide="database" class="w-4 h-4"></i> 7. النسخ الاحتياطي
+                </button>
+            </div>
+
+            <!-- TAB 1: SHIFT CLOSING (تقفيل اليوم والتسوية) -->
+            <div x-show="adminTab === 'closing'" class="space-y-4">
+                
+                <!-- SHIFT SETUP & AUDIT HEADER -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-4">
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                        <h3 class="font-extrabold text-slate-800 text-lg flex items-center gap-2">
+                            <i data-lucide="shield-check" class="w-6 h-6 text-emerald-600"></i> جرد وتقفيل اليومية الشامل
+                        </h3>
+                        <span class="text-xs bg-slate-100 text-slate-600 font-bold px-3 py-1 rounded-full" x-text="'تاريخ التقفيل: ' + currentDateStr"></span>
+                    </div>
+
+                    <!-- MASTER CAPITAL & OPENING ADJUSTMENT -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 mb-1">الرصيد الافتتاحي العام للنظام (ج):</label>
+                            <input type="number" x-model.number="masterOpeningBalance" @change="saveMasterOpeningBalance()" class="w-full bg-white border border-slate-300 rounded-xl p-2 font-black text-slate-900 text-base num-en focus:ring-2 focus:ring-blue-500">
+                            <span class="text-[10px] text-slate-400 font-semibold">مجموع رأس المال الافتتاحي الموزع في النظام</span>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 mb-1">أرباح الشيفت الحالي (الفائدة):</label>
+                            <div class="w-full bg-amber-50 border border-amber-200 rounded-xl p-2 font-black text-amber-700 text-base num-en" x-text="formatMoney(calculateCurrentShiftProfit()) + ' ج'"></div>
+                            <span class="text-[10px] text-slate-400 font-semibold">العمولات المحسوبة منذ آخر تقفيل معتمد</span>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 mb-1">النقدية الفعلية بداخل الدرج (ج):</label>
+                            <input type="number" x-model.number="closingInputs.actualDrawerCash" placeholder="أدخل كاش الدرج" class="w-full bg-emerald-50 border border-emerald-300 rounded-xl p-2 font-black text-emerald-900 text-base num-en focus:ring-2 focus:ring-emerald-500">
+                            <span class="text-[10px] text-slate-500 font-bold" x-text="'المتوقع حسابياً بالدرج: ' + formatMoney(calculateExpectedDrawerCash()) + ' ج'"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LINE BY LINE AUDIT GRID (50+ WALLETS AUDIT) -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                    <h4 class="font-extrabold text-slate-800 text-sm mb-3 flex items-center gap-2">
+                        <i data-lucide="list-checks" class="w-4 h-4 text-blue-600"></i> جرد أرصدة المحافظ والماكينات (أدخل الرصيد المتبقي بالتليفون)
+                    </h4>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-80 overflow-y-auto p-1">
+                        <template x-for="w in activeWallets" :key="w.id">
+                            <div class="p-3 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col justify-between space-y-2">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <p class="font-bold text-xs text-slate-800" x-text="w.name"></p>
+                                        <p class="text-[11px] text-slate-500 num-en" x-text="w.phone"></p>
+                                    </div>
+                                    <span class="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full" x-text="w.type"></span>
+                                </div>
+                                <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-200">
+                                    <div class="text-[11px] font-bold text-slate-500">
+                                        المفروض: <span class="text-slate-900 num-en" x-text="formatMoney(w.balance)"></span> ج
+                                    </div>
+                                    <div class="w-32">
+                                        <input type="number" x-model.number="closingInputs.walletBalances[w.id]" placeholder="الرصيد بالتليفون" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-xs font-black num-en focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- LIVE RECONCILIATION REPORT ENGINE -->
+                <div class="bg-white rounded-2xl border-2 border-slate-900 p-4 shadow-sm space-y-3">
+                    <h4 class="font-black text-slate-900 text-base border-b border-slate-200 pb-2 flex items-center gap-2">
+                        <i data-lucide="pie-chart" class="w-5 h-5 text-indigo-600"></i> التقرير اللحظي الشامل لمطابقة الحسابات والعجز / الزيادة
+                    </h4>
+
+                    <!-- MASTER RECONCILIATION SUMMARY -->
+                    <div x-data="{ audit: {} }" x-init="audit = calculateFullAudit()" x-effect="audit = calculateFullAudit()">
+                        <div class="space-y-3">
+                            
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+                                <div class="bg-slate-100 p-2.5 rounded-xl">
+                                    <span class="text-[11px] text-slate-500 font-bold block">إجمالي أصول النظام الفعلية</span>
+                                    <span class="text-base font-black text-slate-900 num-en" x-text="formatMoney(audit.totalActualAssets) + ' ج'"></span>
+                                </div>
+                                <div class="bg-slate-100 p-2.5 rounded-xl">
+                                    <span class="text-[11px] text-slate-500 font-bold block">إجمالي الأصول المتوقعة</span>
+                                    <span class="text-base font-black text-slate-900 num-en" x-text="formatMoney(audit.totalExpectedAssets) + ' ج'"></span>
+                                </div>
+                                <div class="bg-slate-100 p-2.5 rounded-xl">
+                                    <span class="text-[11px] text-slate-500 font-bold block">صافي ديون العملاء (لَنا)</span>
+                                    <span class="text-base font-black text-rose-600 num-en" x-text="formatMoney(audit.totalDebts) + ' ج'"></span>
+                                </div>
+                                <div class="bg-slate-100 p-2.5 rounded-xl">
+                                    <span class="text-[11px] text-slate-500 font-bold block">حالة التقدير النهائية</span>
+                                    <span :class="audit.variance === 0 ? 'text-emerald-600' : (audit.variance > 0 ? 'text-blue-600' : 'text-rose-600')" class="text-base font-black num-en" x-text="audit.variance === 0 ? 'متطابق 100%' : (audit.variance > 0 ? 'زيادة: +' + formatMoney(audit.variance) + ' ج' : 'عجز: ' + formatMoney(audit.variance) + ' ج')"></span>
+                                </div>
+                            </div>
+
+                            <!-- DETAILED AUDIT DIAGNOSTIC BREAKDOWN -->
+                            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs font-bold space-y-1.5">
+                                <p class="text-slate-700 font-extrabold border-b border-slate-200 pb-1">تفاصيل الفوارق ومصادر العجز أو الزيادة:</p>
+                                <p class="text-slate-600" x-text="'فارق كاش الدرج: ' + formatMoney(audit.drawerVariance) + ' ج (' + (audit.drawerVariance >= 0 ? 'زيادة بالدرج' : 'عجز بالدرج') + ')'"></p>
+                                <p class="text-slate-600" x-text="'فارق أرصدة المحافظ والمكن: ' + formatMoney(audit.walletsVariance) + ' ج'"></p>
+                                <template x-for="item in audit.walletDetails" :key="item.id">
+                                    <div x-show="item.variance !== 0" class="text-[11px] text-slate-500 pr-3">
+                                        • <span x-text="item.name"></span>: متوقع <span class="num-en" x-text="item.expected"></span> | إدخال <span class="num-en" x-text="item.actual"></span> | الفارق: <span class="num-en font-black" :class="item.variance > 0 ? 'text-emerald-600' : 'text-rose-600'" x-text="(item.variance > 0 ? '+' : '') + item.variance"></span> ج
+                                    </div>
+                                </template>
+                            </div>
+
+                            <div class="flex justify-end pt-2">
+                                <button @click="approveAndSaveShiftClosing(audit)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-6 py-2.5 rounded-xl shadow-md transition flex items-center gap-2">
+                                    <i data-lucide="save" class="w-4 h-4"></i> اعتماد وتقفيل الشيفت رسمياً
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PAST CLOSINGS HISTORY TABLE -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                    <h4 class="font-extrabold text-slate-800 text-sm mb-3 flex items-center gap-2">
+                        <i data-lucide="archive" class="w-4 h-4 text-slate-600"></i> أرشيف التقفيلات والشيفتات السابقة
+                    </h4>
+                    <div class="overflow-x-auto max-h-48">
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-slate-100 text-slate-600 font-bold sticky top-0">
+                                <tr>
+                                    <th class="p-2">التاريخ والوقت</th>
+                                    <th class="p-2">الرصيد الافتتاحي</th>
+                                    <th class="p-2">الفائدة/الأرباح</th>
+                                    <th class="p-2">كاش الدرج الفعلي</th>
+                                    <th class="p-2">النتيجة</th>
+                                    <th class="p-2 text-center">إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <template x-for="c in closingHistory" :key="c.id">
+                                    <tr class="hover:bg-slate-50 font-bold">
+                                        <td class="p-2 text-slate-500 num-en" x-text="c.datetime"></td>
+                                        <td class="p-2 text-slate-800 num-en" x-text="formatMoney(c.openingBalance) + ' ج'"></td>
+                                        <td class="p-2 text-amber-600 num-en" x-text="formatMoney(c.profit) + ' ج'"></td>
+                                        <td class="p-2 text-emerald-600 num-en" x-text="formatMoney(c.actualDrawer) + ' ج'"></td>
+                                        <td class="p-2">
+                                            <span :class="c.variance === 0 ? 'bg-emerald-100 text-emerald-800' : (c.variance > 0 ? 'bg-blue-100 text-blue-800' : 'bg-rose-100 text-rose-800')" class="px-2 py-0.5 rounded-full text-[10px]" x-text="c.variance === 0 ? 'متطابق' : (c.variance > 0 ? '+' + c.variance + ' زيادات' : c.variance + ' عجز')"></span>
+                                        </td>
+                                        <td class="p-2 text-center">
+                                            <div class="flex justify-center gap-2">
+                                                <button @click="editClosingRecord(c)" class="text-blue-700 hover:text-blue-900 bg-blue-50 px-2 py-1 rounded flex items-center gap-1" title="فتح التقفيلة للتعديل"><i data-lucide="edit" class="w-3.5 h-3.5"></i><span>تعديل</span></button>
+                                                <button @click="deleteClosingRecord(c.id)" class="text-rose-600 hover:text-rose-800" title="حذف التقفيلة"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <template x-if="editingClosing">
+                    <div id="closingEditor" class="mt-4 border-t border-slate-200 pt-4 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <h4 class="font-extrabold text-slate-800 text-sm" x-text="'تعديل تقفيلة بتاريخ ' + (editingClosing ? editingClosing.datetime : '')"></h4>
+                            <button @click="editingClosing = null" class="text-slate-500 hover:text-slate-800" title="إغلاق"><i data-lucide="x" class="w-4 h-4"></i></button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <label class="text-xs font-bold text-slate-600">الرصيد الافتتاحي العام
+                                <input type="number" x-model.number="editingClosing.openingBalance" class="mt-1 w-full bg-white border border-slate-300 rounded-lg p-2 num-en">
+                            </label>
+                            <label class="text-xs font-bold text-slate-600">الربح المعتمد
+                                <input type="number" x-model.number="editingClosing.profit" class="mt-1 w-full bg-white border border-slate-300 rounded-lg p-2 num-en">
+                            </label>
+                            <label class="text-xs font-bold text-slate-600">النقد الفعلي بالدرج
+                                <input type="number" x-model.number="editingClosing.actualDrawer" class="mt-1 w-full bg-white border border-slate-300 rounded-lg p-2 num-en">
+                            </label>
+                            <label class="text-xs font-bold text-slate-600">تاريخ ووقت التقفيلة
+                                <input type="datetime-local" x-model="editingClosing.datetimeInput" class="mt-1 w-full bg-white border border-slate-300 rounded-lg p-2 num-en">
+                            </label>
+                            <label class="text-xs font-bold text-slate-600">صافي ديون العملاء
+                                <input type="number" x-model.number="editingClosing.totalDebts" class="mt-1 w-full bg-white border border-slate-300 rounded-lg p-2 num-en">
+                            </label>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-56 overflow-y-auto">
+                            <template x-for="w in wallets" :key="'edit-' + w.id">
+                                <label class="text-xs font-bold text-slate-600"><span x-text="w.name"></span>
+                                    <input type="number" x-model.number="closingEditWalletBalances[w.id]" class="mt-1 w-full bg-white border border-slate-300 rounded-lg p-2 num-en">
+                                </label>
+                            </template>
+                        </div>
+                        <div class="flex justify-end gap-2">
+                            <button @click="editingClosing = null" class="bg-slate-100 text-slate-700 font-bold px-4 py-2 rounded-lg text-xs">إلغاء</button>
+                            <button @click="saveClosingEdit()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-lg text-xs">حفظ التعديل</button>
+                        </div>
+                    </div>
+                    </template>
+                </div>
+
+            </div>
+
+            <!-- TAB 2: WALLETS MANAGEMENT (إدارة المحافظ والمكن) -->
+            <div x-show="adminTab === 'wallets'" class="space-y-4">
+                
+                <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex justify-between items-center">
+                    <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                        <i data-lucide="smartphone" class="w-5 h-5 text-blue-600"></i> قائمة المحافظ والماكينات المسجلة
+                    </h3>
+                    <button @click="openWalletModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i> إضافة محفظة / ماكينة جديدة
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-slate-100 text-slate-600 font-bold">
+                                <tr>
+                                    <th class="p-2.5">الاسم والبيانات</th>
+                                    <th class="p-2.5">رقم الهاتف</th>
+                                    <th class="p-2.5">النوع</th>
+                                    <th class="p-2.5">الرقم القومي</th>
+                                    <th class="p-2.5">تاريخ الميلاد</th>
+                                    <th class="p-2.5">الرصيد الحالي</th>
+                                    <th class="p-2.5 text-center">إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <template x-for="w in wallets" :key="w.id">
+                                    <tr class="hover:bg-slate-50 font-bold">
+                                        <td class="p-2.5 text-slate-900" x-text="w.name"></td>
+                                        <td class="p-2.5 text-slate-700 num-en" x-text="w.phone"></td>
+                                        <td class="p-2.5"><span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px]" x-text="w.type"></span></td>
+                                        <td class="p-2.5 text-slate-500 num-en" x-text="w.nationalId || '-'"></td>
+                                        <td class="p-2.5 text-slate-500 num-en" x-text="w.birthDate || '-'"></td>
+                                        <td class="p-2.5 text-emerald-600 font-black num-en" x-text="formatMoney(w.balance) + ' ج'"></td>
+                                        <td class="p-2.5 text-center flex justify-center gap-2">
+                                            <button @click="editWallet(w)" class="text-blue-600 hover:text-blue-800"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                            <button @click="deleteWallet(w.id)" class="text-rose-600 hover:text-rose-800"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- TAB 3: VOUCHERS (سندات القبض والصرف) -->
+            <div x-show="adminTab === 'vouchers'" class="space-y-4">
+                
+                <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-2 space-y-3">
+                        <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2 border-b border-slate-100 pb-2">
+                            <i data-lucide="file-plus" class="w-5 h-5 text-indigo-600"></i> إضافة سند قبض أو صرف جديد
+                        </h3>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">نوع السند:</label>
+                                <select x-model="voucherForm.type" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-bold">
+                                    <option value="receipt">سند قبض (استلام فلوس من عميل / تسديد دين)</option>
+                                    <option value="payment">سند صرف (دفع فلوس لعميل / زيادة دين)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">اختر العميل (إجباري):</label>
+                                <select x-model="voucherForm.customerId" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-bold">
+                                    <option value="">-- اختر عميل مسجل --</option>
+                                    <template x-for="c in customers" :key="c.id">
+                                        <option :value="c.id" x-text="c.name + ' (' + c.phone + ')'"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">المبلغ (ج):</label>
+                                <input type="number" x-model.number="voucherForm.amount" placeholder="0.00" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-bold num-en">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">التاريخ والوقت:</label>
+                                <input type="datetime-local" x-model="voucherForm.datetime" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-bold num-en">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">السبب / الملاحظة (إجباري):</label>
+                                <input type="text" x-model="voucherForm.notes" placeholder="سديد حساب، سلفة، مصاريف..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-bold">
+                            </div>
+                        </div>
+
+                        <button @click="saveVoucher()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 transition">
+                            <i data-lucide="check" class="w-4 h-4"></i><span x-text="editingVoucherId ? 'حفظ تعديل السند' : 'حفظ السند واعتماده'"></span>
+                        </button>
+                        <button x-show="editingVoucherId" @click="cancelVoucherEdit()" class="bg-slate-100 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs">إلغاء التعديل</button>
+                    </div>
+
+                    <!-- VOUCHER TOTALS -->
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <h4 class="font-extrabold text-xs text-slate-600 mb-2">إجمالي حركة السندات المسجلة:</h4>
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center text-xs font-bold bg-emerald-100 text-emerald-800 p-2 rounded-lg">
+                                    <span>سندات القبض (الداخل):</span>
+                                    <span class="num-en text-sm" x-text="formatMoney(calculateVoucherTotals().receipts) + ' ج'"></span>
+                                </div>
+                                <div class="flex justify-between items-center text-xs font-bold bg-rose-100 text-rose-800 p-2 rounded-lg">
+                                    <span>سندات الصرف (الخارج):</span>
+                                    <span class="num-en text-sm" x-text="formatMoney(calculateVoucherTotals().payments) + ' ج'"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VOUCHERS LIST TABLE -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="font-extrabold text-slate-800 text-sm">سجل السندات المسجلة</h4>
+                        <input type="text" x-model="voucherSearch" placeholder="بحث بالسند أو العميل..." class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold w-64">
+                    </div>
+                    <div class="overflow-x-auto max-h-64">
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-slate-100 text-slate-600 font-bold sticky top-0">
+                                <tr>
+                                    <th class="p-2.5">التاريخ والوقت</th>
+                                    <th class="p-2.5">النوع</th>
+                                    <th class="p-2.5">العميل</th>
+                                    <th class="p-2.5">المبلغ</th>
+                                    <th class="p-2.5">السبب / الملاحظة</th>
+                                    <th class="p-2.5 text-center">إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <template x-for="v in filteredVouchers" :key="v.id">
+                                    <tr class="hover:bg-slate-50 font-bold">
+                                        <td class="p-2.5 text-slate-500 num-en" x-text="v.datetime"></td>
+                                        <td class="p-2.5">
+                                            <span :class="v.type === 'receipt' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'" class="px-2 py-0.5 rounded-full text-[10px]" x-text="v.type === 'receipt' ? 'قبض (داخل)' : 'صرف (خارج)'"></span>
+                                        </td>
+                                        <td class="p-2.5 text-slate-900" x-text="getCustomerName(v.customerId)"></td>
+                                        <td class="p-2.5 font-black num-en" :class="v.type === 'receipt' ? 'text-emerald-600' : 'text-rose-600'" x-text="formatMoney(v.amount) + ' ج'"></td>
+                                        <td class="p-2.5 text-slate-600" x-text="v.notes"></td>
+                                        <td class="p-2.5 text-center">
+                                            <div class="flex justify-center gap-2">
+                                                <button @click="editVoucher(v)" class="text-blue-600 hover:text-blue-800" title="تعديل السند"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                                <button @click="deleteVoucher(v.id)" class="text-rose-600 hover:text-rose-800" title="حذف السند"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- TAB 4: DEBTORS / CREDITORS (كشف حسابات العملاء - الآجل) -->
+            <div x-show="adminTab === 'debts'" class="space-y-4">
+                
+                <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex justify-between items-center">
+                    <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                        <i data-lucide="users" class="w-5 h-5 text-blue-600"></i> إدارة العملاء والديون والآجل
+                    </h3>
+                    <button @click="openCustomerModal()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition">
+                        <i data-lucide="user-plus" class="w-4 h-4"></i> إضافة عميل جديد
+                    </button>
+                </div>
+
+                <!-- TWO COLUMN SPLIT TABLE (DEBTORS / CREDITORS) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    <!-- RIGHT COLUMN: DEBTORS (ناس عليها فلوس - أحمر) -->
+                    <div class="bg-white rounded-2xl border-2 border-rose-500/30 p-4 shadow-sm">
+                        <h4 class="font-black text-rose-700 text-sm mb-3 flex items-center gap-2 border-b border-rose-100 pb-2">
+                            <i data-lucide="arrow-down-right" class="w-4 h-4"></i> ناس عليها فلوس (عملاء مدينون)
+                        </h4>
+                        <div class="overflow-x-auto max-h-72">
+                            <table class="w-full text-right text-xs">
+                                <thead class="bg-rose-50 text-rose-800 font-bold">
+                                    <tr>
+                                        <th class="p-2">الاسم</th>
+                                        <th class="p-2">الهاتف</th>
+                                        <th class="p-2">المبلغ المطلوب</th>
+                                        <th class="p-2 text-center">التفاصيل</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-rose-50">
+                                    <template x-for="c in debtorsList" :key="c.id">
+                                        <tr class="hover:bg-rose-50/50 font-bold">
+                                            <td class="p-2 text-slate-900" x-text="c.name"></td>
+                                            <td class="p-2 text-slate-500 num-en" x-text="c.phone"></td>
+                                            <td class="p-2 text-rose-600 font-black num-en" x-text="formatMoney(c.balance) + ' ج'"></td>
+                                            <td class="p-2 text-center">
+                                                <div class="flex justify-center gap-1">
+                                                    <button @click="viewCustomerStatement(c)" class="bg-rose-100 text-rose-800 hover:bg-rose-200 px-2 py-1 rounded text-[10px]">كشف حساب</button>
+                                                    <button @click="editCustomer(c)" class="text-blue-600" title="تعديل العميل"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                                    <button @click="deleteCustomer(c.id)" class="text-rose-600" title="حذف العميل"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- LEFT COLUMN: CREDITORS (ناس ليها فلوس - أخضر) -->
+                    <div class="bg-white rounded-2xl border-2 border-emerald-500/30 p-4 shadow-sm">
+                        <h4 class="font-black text-emerald-700 text-sm mb-3 flex items-center gap-2 border-b border-emerald-100 pb-2">
+                            <i data-lucide="arrow-up-left" class="w-4 h-4"></i> ناس ليها فلوس (عملاء دائنون)
+                        </h4>
+                        <div class="overflow-x-auto max-h-72">
+                            <table class="w-full text-right text-xs">
+                                <thead class="bg-emerald-50 text-emerald-800 font-bold">
+                                    <tr>
+                                        <th class="p-2">الاسم</th>
+                                        <th class="p-2">الهاتف</th>
+                                        <th class="p-2">المبلغ له</th>
+                                        <th class="p-2 text-center">التفاصيل</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-emerald-50">
+                                    <template x-for="c in creditorsList" :key="c.id">
+                                        <tr class="hover:bg-emerald-50/50 font-bold">
+                                            <td class="p-2 text-slate-900" x-text="c.name"></td>
+                                            <td class="p-2 text-slate-500 num-en" x-text="c.phone"></td>
+                                            <td class="p-2 text-emerald-600 font-black num-en" x-text="formatMoney(Math.abs(c.balance)) + ' ج'"></td>
+                                            <td class="p-2 text-center">
+                                                <div class="flex justify-center gap-1">
+                                                    <button @click="viewCustomerStatement(c)" class="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 px-2 py-1 rounded text-[10px]">كشف حساب</button>
+                                                    <button @click="editCustomer(c)" class="text-blue-600" title="تعديل العميل"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                                    <button @click="deleteCustomer(c.id)" class="text-rose-600" title="حذف العميل"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- TAB 5: REPORTS & PROFIT ANALYSIS (تقارير الأرباح والأداء) -->
+            <div x-show="adminTab === 'reports'" class="space-y-4">
+                
+                <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
+                    <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                        <i data-lucide="bar-chart-3" class="w-5 h-5 text-amber-600"></i> تقارير الأرباح المحددة بالتاريخ
+                    </h3>
+
+                    <!-- DATE RANGE FILTER -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 mb-1">من تاريخ:</label>
+                            <input type="date" x-model="reportFilter.fromDate" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-xs font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 mb-1">إلى تاريخ:</label>
+                            <input type="date" x-model="reportFilter.toDate" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-xs font-bold">
+                        </div>
+                        <div class="flex items-end">
+                            <button @click="generateReport()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold p-2 rounded-xl text-xs flex items-center justify-center gap-1 transition">
+                                <i data-lucide="search" class="w-4 h-4"></i> عرض تقرير الفترة
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- REPORT RESULT SUMMARY CARDS -->
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
+                        <div class="bg-amber-50 p-3 rounded-xl border border-amber-200">
+                            <span class="text-xs text-amber-800 font-bold block">إجمالي عمولات الفترة</span>
+                            <span class="text-lg font-black text-amber-900 num-en" x-text="formatMoney(reportResult.totalFees) + ' ج'"></span>
+                        </div>
+                        <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+                            <span class="text-xs text-emerald-800 font-bold block">إجمالي عمليات الإيداع</span>
+                            <span class="text-lg font-black text-emerald-900 num-en" x-text="formatMoney(reportResult.depositVolume) + ' ج'"></span>
+                        </div>
+                        <div class="bg-rose-50 p-3 rounded-xl border border-rose-200">
+                            <span class="text-xs text-rose-800 font-bold block">إجمالي عمليات السحب</span>
+                            <span class="text-lg font-black text-rose-900 num-en" x-text="formatMoney(reportResult.withdrawVolume) + ' ج'"></span>
+                        </div>
+                        <div class="bg-purple-50 p-3 rounded-xl border border-purple-200">
+                            <span class="text-xs text-purple-800 font-bold block">عدد المعاملات الإجمالي</span>
+                            <span class="text-lg font-black text-purple-900 num-en" x-text="reportResult.count + ' عملية'"></span>
+                        </div>
+                        <div class="bg-sky-50 p-3 rounded-xl border border-sky-200">
+                            <span class="text-xs text-sky-800 font-bold block">سندات القبض بالفترة</span>
+                            <span class="text-lg font-black text-sky-900 num-en" x-text="formatMoney(reportResult.receiptVouchers) + ' ج'"></span>
+                        </div>
+                        <div class="bg-orange-50 p-3 rounded-xl border border-orange-200">
+                            <span class="text-xs text-orange-800 font-bold block">سندات الصرف بالفترة</span>
+                            <span class="text-lg font-black text-orange-900 num-en" x-text="formatMoney(reportResult.paymentVouchers) + ' ج'"></span>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto max-h-80 border-t border-slate-100 pt-3">
+                        <h4 class="font-extrabold text-slate-700 text-xs mb-2">تفاصيل عمليات الفترة</h4>
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-slate-100 text-slate-600 font-bold sticky top-0"><tr><th class="p-2">التاريخ والوقت</th><th class="p-2">النوع</th><th class="p-2">الخط</th><th class="p-2">العميل</th><th class="p-2">المبلغ</th><th class="p-2">العمولة</th><th class="p-2">إجراءات</th></tr></thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <template x-for="t in filteredReportTransactions" :key="'period-' + t.id"><tr class="font-bold"><td class="p-2 num-en" x-text="t.datetime"></td><td class="p-2" x-text="t.type === 'deposit' ? 'إيداع للعميل' : 'سحب من العميل'"></td><td class="p-2" x-text="getWalletName(t.walletId)"></td><td class="p-2" x-text="t.customerName || '-' "></td><td class="p-2 num-en" x-text="formatMoney(t.amount) + ' ج'"></td><td class="p-2 text-amber-700 num-en" x-text="formatMoney(t.fee) + ' ج'"></td><td class="p-2"><button @click="editTransaction(t)" class="text-blue-600" title="تعديل"><i data-lucide="edit" class="w-4 h-4"></i></button><button @click="deleteTransaction(t.id)" class="text-rose-600" title="حذف"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr></template>
+                                <tr x-show="filteredReportTransactions.length === 0"><td colspan="7" class="p-5 text-center text-slate-400">لا توجد عمليات في الفترة المحددة</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <div x-show="adminTab === 'walletReports'" class="space-y-4">
+                <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-4">
+                    <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                        <i data-lucide="smartphone" class="w-5 h-5 text-blue-600"></i> تقرير عمليات وأرباح الخط
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <label class="text-xs font-bold text-slate-600">الخط / المحفظة
+                            <select x-model="walletReportFilter.walletId" class="mt-1 w-full bg-white border border-slate-300 rounded-xl p-2 text-xs">
+                                <option value="">اختر الخط</option>
+                                <template x-for="w in wallets" :key="'report-' + w.id"><option :value="w.id" x-text="w.name + ' (' + w.phone + ')' "></option></template>
+                            </select>
+                        </label>
+                        <label class="text-xs font-bold text-slate-600">من تاريخ
+                            <input type="date" x-model="walletReportFilter.fromDate" class="mt-1 w-full bg-white border border-slate-300 rounded-xl p-2 text-xs">
+                        </label>
+                        <label class="text-xs font-bold text-slate-600">إلى تاريخ
+                            <input type="date" x-model="walletReportFilter.toDate" class="mt-1 w-full bg-white border border-slate-300 rounded-xl p-2 text-xs">
+                        </label>
+                        <button @click="generateWalletReport()" class="self-end bg-blue-600 hover:bg-blue-700 text-white font-bold p-2 rounded-xl text-xs flex items-center justify-center gap-1">
+                            <i data-lucide="search" class="w-4 h-4"></i> عرض التقرير
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
+                        <div class="bg-slate-50 p-3 rounded-xl border"><span class="text-xs text-slate-500 block">عدد العمليات</span><strong class="num-en" x-text="walletReportResult.count"></strong></div>
+                        <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200"><span class="text-xs text-emerald-700 block">إيداعات العميل</span><strong class="num-en" x-text="formatMoney(walletReportResult.depositVolume) + ' ج'"></strong></div>
+                        <div class="bg-rose-50 p-3 rounded-xl border border-rose-200"><span class="text-xs text-rose-700 block">سحوبات العميل</span><strong class="num-en" x-text="formatMoney(walletReportResult.withdrawVolume) + ' ج'"></strong></div>
+                        <div class="bg-amber-50 p-3 rounded-xl border border-amber-200"><span class="text-xs text-amber-700 block">إجمالي العمولة</span><strong class="num-en" x-text="formatMoney(walletReportResult.totalFees) + ' ج'"></strong></div>
+                        <div class="bg-blue-50 p-3 rounded-xl border border-blue-200"><span class="text-xs text-blue-700 block">الرصيد الحالي</span><strong class="num-en" x-text="formatMoney(getWalletBalance(walletReportFilter.walletId)) + ' ج'"></strong></div>
+                    </div>
+                    <div class="overflow-x-auto max-h-96">
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-slate-100 text-slate-600 font-bold sticky top-0"><tr><th class="p-2">التاريخ والوقت</th><th class="p-2">النوع</th><th class="p-2">العميل</th><th class="p-2">آخر أرقام</th><th class="p-2">المبلغ</th><th class="p-2">العمولة</th><th class="p-2">إجراءات</th></tr></thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <template x-for="t in walletReportTransactions" :key="t.id"><tr class="font-bold"><td class="p-2 num-en" x-text="t.datetime"></td><td class="p-2" x-text="t.type === 'deposit' ? 'إيداع للعميل' : 'سحب من العميل'"></td><td class="p-2" x-text="t.customerName || '-' "></td><td class="p-2 num-en" x-text="t.lastThree || '-' "></td><td class="p-2 num-en" x-text="formatMoney(t.amount) + ' ج'"></td><td class="p-2 text-amber-700 num-en" x-text="formatMoney(t.fee) + ' ج'"></td><td class="p-2 text-center"><button @click="editTransaction(t)" class="text-blue-600" title="تعديل"><i data-lucide="edit" class="w-4 h-4"></i></button><button @click="deleteTransaction(t.id)" class="text-rose-600" title="حذف"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr></template>
+                                <tr x-show="walletReportTransactions.length === 0"><td colspan="7" class="p-5 text-center text-slate-400">لا توجد عمليات لهذا الخط في الفترة المحددة</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 6: BACKUP & RESTORE (النسخ الاحتياطي والاسترجاع) -->
+            <div x-show="adminTab === 'backup'" class="space-y-4">
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+                    <h3 class="font-extrabold text-slate-800 text-lg flex items-center gap-2">
+                        <i data-lucide="database" class="w-6 h-6 text-blue-600"></i> إدارة النسخ الاحتياطي للسيستم
+                    </h3>
+                    <p class="text-xs text-slate-500 font-bold">البيانات تحفظ في المتصفح. اختر مجلد النسخ الاحتياطي وامنح الإذن لحفظ ملف جديد مؤرخ بعد كل حفظ؛ يمكنك اختيار C:\Cash من نافذة المجلدات. إذا لم يدعم المتصفح ذلك، نزّل نسخة JSON يدوياً.</p>
+
+                    <div class="flex flex-wrap gap-3 pt-3">
+                        <button @click="chooseBackupDirectory()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 transition shadow">
+                            <i data-lucide="folder-open" class="w-4 h-4"></i> اختيار مجلد النسخ الاحتياطي
+                        </button>
+                        <button @click="downloadBackupJSON()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 transition shadow">
+                            <i data-lucide="download" class="w-4 h-4"></i> تنزيل نسخة احتياطية فورية (JSON)
+                        </button>
+                        <label class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 cursor-pointer transition shadow">
+                            <i data-lucide="upload" class="w-4 h-4"></i> استرجاع نسخة احتياطية من جهازك
+                            <input type="file" @change="importBackupJSON($event)" accept=".json" class="hidden">
+                        </label>
+                    </div>
+                    <p class="text-xs font-bold text-slate-500" x-text="backupDirectoryStatus"></p>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- MODAL 1: ADMIN AUTHENTICATION MODAL -->
+    <div x-show="showAdminAuthModal" x-cloak class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div @click.away="showAdminAuthModal = false" class="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl border border-slate-100">
+            <div class="text-center">
+                <div class="w-12 h-12 bg-slate-100 text-slate-800 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <i data-lucide="lock" class="w-6 h-6"></i>
+                </div>
+                <h3 class="font-extrabold text-slate-900 text-base">دخول لوحة الإدارة</h3>
+                <p class="text-xs text-slate-500">أدخل كلمة المرور الخاصة بالإدارة للتابعة</p>
+            </div>
+            <div>
+                <input type="password" x-model="adminPasswordInput" @keyup.enter="verifyAdminPassword()" placeholder="كلمة المرور..." class="w-full text-center bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-lg num-en focus:ring-2 focus:ring-slate-800">
+            </div>
+            <div class="flex gap-2">
+                <button @click="verifyAdminPassword()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs transition">دخول</button>
+                <button @click="showAdminAuthModal = false" class="w-full bg-slate-100 text-slate-700 font-bold py-2.5 rounded-xl text-xs transition">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showBackupPreview" x-cloak class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+            <h3 class="font-extrabold text-slate-900">معاينة النسخة الاحتياطية</h3>
+            <p class="text-xs text-slate-600" x-text="pendingBackup ? 'تاريخ النسخة: ' + (pendingBackup.backupDate || 'غير مسجل') : ''"></p>
+            <div class="grid grid-cols-2 gap-2 text-xs font-bold text-slate-700">
+                <span x-text="'الخطوط: ' + (pendingBackup?.wallets?.length || 0)"></span>
+                <span x-text="'العمليات: ' + (pendingBackup?.transactions?.length || 0)"></span>
+                <span x-text="'السندات: ' + (pendingBackup?.vouchers?.length || 0)"></span>
+                <span x-text="'التقفيلات: ' + (pendingBackup?.closingHistory?.length || 0)"></span>
+            </div>
+            <p class="text-xs text-rose-700 font-bold">سيتم استبدال البيانات الحالية بعد التأكيد.</p>
+            <div class="flex gap-2">
+                <button @click="restorePendingBackup()" class="flex-1 bg-emerald-600 text-white font-bold py-2 rounded-lg text-xs">تأكيد الاسترجاع</button>
+                <button @click="showBackupPreview = false; pendingBackup = null" class="flex-1 bg-slate-100 text-slate-700 font-bold py-2 rounded-lg text-xs">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showTransactionModal" x-cloak class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl max-w-lg w-full p-5 space-y-4 shadow-2xl">
+            <h3 class="font-extrabold text-slate-900">تعديل العملية المسجلة</h3>
+            <div class="grid grid-cols-2 gap-3">
+                <label class="text-xs font-bold text-slate-600">نوع العملية
+                    <select x-model="transactionForm.type" class="mt-1 w-full bg-slate-50 border border-slate-300 rounded-lg p-2"><option value="deposit">إيداع للعميل</option><option value="withdraw">سحب من العميل</option></select>
+                </label>
+                <label class="text-xs font-bold text-slate-600">الخط
+                    <select x-model="transactionForm.walletId" class="mt-1 w-full bg-slate-50 border border-slate-300 rounded-lg p-2"><template x-for="w in wallets" :key="'tx-edit-' + w.id"><option :value="w.id" x-text="w.name"></option></template></select>
+                </label>
+                <label class="text-xs font-bold text-slate-600">المبلغ
+                    <input type="number" min="0" x-model.number="transactionForm.amount" class="mt-1 w-full bg-slate-50 border border-slate-300 rounded-lg p-2 num-en">
+                </label>
+                <label class="text-xs font-bold text-slate-600">العمولة
+                    <input type="number" min="0" x-model.number="transactionForm.fee" class="mt-1 w-full bg-slate-50 border border-slate-300 rounded-lg p-2 num-en">
+                </label>
+                <label class="text-xs font-bold text-slate-600">التاريخ والوقت
+                    <input type="datetime-local" x-model="transactionForm.datetime" class="mt-1 w-full bg-slate-50 border border-slate-300 rounded-lg p-2 num-en">
+                </label>
+                <label class="text-xs font-bold text-slate-600">اسم العميل
+                    <input type="text" x-model="transactionForm.customerName" class="mt-1 w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+                </label>
+                <label class="text-xs font-bold text-slate-600">آخر 3 أرقام
+                    <input type="text" maxlength="3" x-model="transactionForm.lastThree" class="mt-1 w-full bg-slate-50 border border-slate-300 rounded-lg p-2 num-en">
+                </label>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button @click="showTransactionModal = false" class="bg-slate-100 text-slate-700 font-bold px-4 py-2 rounded-lg text-xs">إلغاء</button>
+                <button @click="saveTransactionEdit()" class="bg-blue-600 text-white font-bold px-4 py-2 rounded-lg text-xs">حفظ التعديل</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: WALLET ADD/EDIT MODAL -->
+    <div x-show="showWalletModal" x-cloak class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div @click.away="showWalletModal = false" class="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-slate-100">
+            <h3 class="font-extrabold text-slate-900 text-base" x-text="editingWalletId ? 'تعديل بيانات الخط/المحفظة' : 'إضافة خط/محفظة جديدة'"></h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">اسم المحفظة / الماكينة (إجباري):</label>
+                    <input type="text" x-model="walletForm.name" placeholder="مثال: فودافون الرئيسية" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-bold">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">رقم الهاتف (إجباري):</label>
+                        <input type="text" x-model="walletForm.phone" placeholder="010xxx" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-bold num-en">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">النوع:</label>
+                        <select x-model="walletForm.type" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-bold">
+                            <option value="Vodafone Cash">فودافون كاش</option>
+                            <option value="InstaPay">إنستا باي</option>
+                            <option value="Fawry">فوري</option>
+                            <option value="Basata">بساطة</option>
+                            <option value="PayNow">باي ناو</option>
+                            <option value="Other">أخرى</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">الرقم القومي (إجباري):</label>
+                        <input type="text" x-model="walletForm.nationalId" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-bold num-en">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">تاريخ الميلاد (إجباري):</label>
+                        <input type="date" x-model="walletForm.birthDate" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-bold">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">الرصيد الافتتاحي (ج):</label>
+                    <input type="number" x-model.number="walletForm.openingBalance" placeholder="0.00" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-bold num-en">
+                </div>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button @click="saveWallet()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl text-xs transition">حفظ</button>
+                <button @click="showWalletModal = false" class="w-full bg-slate-100 text-slate-700 font-bold py-2 rounded-xl text-xs transition">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: CUSTOMER ADD MODAL -->
+    <div x-show="showCustomerModal" x-cloak class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div @click.away="showCustomerModal = false" class="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl border border-slate-100">
+            <h3 class="font-extrabold text-slate-900 text-base" x-text="editingCustomerId ? 'تعديل بيانات العميل' : 'إضافة عميل جديد للآجل'"></h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">اسم العميل:</label>
+                    <input type="text" x-model="customerForm.name" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-bold">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">رقم الهاتف:</label>
+                    <input type="text" x-model="customerForm.phone" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-bold num-en">
+                </div>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button @click="saveCustomer()" class="w-full bg-slate-900 text-white font-bold py-2 rounded-xl text-xs transition" x-text="editingCustomerId ? 'حفظ التعديل' : 'حفظ العميل'"></button>
+                <button @click="showCustomerModal = false" class="w-full bg-slate-100 text-slate-700 font-bold py-2 rounded-xl text-xs transition">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4: CUSTOMER STATEMENT AUDIT MODAL -->
+    <div x-show="showStatementModal" x-cloak class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div @click.away="showStatementModal = false" class="bg-white rounded-2xl max-w-2xl w-full p-5 space-y-4 shadow-2xl border border-slate-100 max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+                <div>
+                    <h3 class="font-black text-slate-900 text-base" x-text="'كشف حساب العميل: ' + selectedCustomer.name"></h3>
+                    <p class="text-xs text-slate-500 font-bold num-en" x-text="'رقم الهاتف: ' + selectedCustomer.phone"></p>
+                </div>
+                <div class="text-left">
+                    <span class="text-xs text-slate-500 font-bold block">رصيد الحساب الحرج:</span>
+                    <span class="text-lg font-black num-en" :class="selectedCustomer.balance > 0 ? 'text-rose-600' : 'text-emerald-600'" x-text="formatMoney(Math.abs(selectedCustomer.balance || 0)) + ' ج (' + (selectedCustomer.balance > 0 ? 'عليه فلوس' : 'له فلوس') + ')'"></span>
+                </div>
+            </div>
+
+            <!-- STATEMENT TRANSACTIONS TABLE -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-right text-xs">
+                    <thead class="bg-slate-100 text-slate-600 font-bold">
+                        <tr>
+                            <th class="p-2">التاريخ والوقت</th>
+                            <th class="p-2">نوع الحركة</th>
+                            <th class="p-2">المبلغ</th>
+                            <th class="p-2">السبب / البيان</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <template x-for="v in selectedCustomerVouchers" :key="v.id">
+                            <tr class="hover:bg-slate-50 font-bold">
+                                <td class="p-2 text-slate-500 num-en" x-text="v.datetime"></td>
+                                <td class="p-2">
+                                    <span :class="v.type === 'payment' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'" class="px-2 py-0.5 rounded text-[10px]" x-text="v.type === 'payment' ? 'سند صرف (+دين)' : 'سند قبض (-دين)'"></span>
+                                </td>
+                                <td class="p-2 font-black num-en" x-text="formatMoney(v.amount) + ' ج'"></td>
+                                <td class="p-2 text-slate-600" x-text="v.notes"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button @click="showStatementModal = false" class="bg-slate-100 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRINT RECEIPT TEMPLATE (VISIBLE ONLY WHEN PRINTING) -->
+    <div id="printReceiptArea" class="hidden print-only p-4 font-mono text-black text-xs space-y-2">
+        <div class="text-center font-extrabold border-b border-black pb-2">
+            <h2 class="text-base">سكاي برو (Sky Pro)</h2>
+            <p>إيصال عملية محفظة إلكترونية</p>
+        </div>
+        <div class="space-y-1 py-2">
+            <p>التاريخ: <span x-text="receiptData.datetime"></span></p>
+            <p>نوع العملية: <span x-text="receiptData.type === 'deposit' ? 'إيداع (كاش)' : 'سحب (كاش)'"></span></p>
+            <p>المحفظة/الخط: <span x-text="getWalletName(receiptData.walletId)"></span></p>
+            <p>اسم العميل: <span x-text="receiptData.customerName || 'عميل نقدي'"></span></p>
+            <p>آخر 3 أرقام: <span x-text="receiptData.lastThree || 'غير محدد'"></span></p>
+            <p class="font-bold text-sm pt-1">المبلغ: <span x-text="formatMoney(receiptData.amount || 0)"></span> ج</p>
+            <p>العمولة: <span x-text="formatMoney(receiptData.fee || 0)"></span> ج</p>
+        </div>
+        <div class="text-center border-t border-black pt-2 text-[10px]">
+            <p>شكراً لتعاملكم مع سكاي برو - Sky Pro</p>
+        </div>
+    </div>
+
+    <!-- MAIN JAVASCRIPT APP ENGINE -->
+    <script>
+        function skyProApp() {
+            return {
+                currentMode: 'cashier', // 'cashier' or 'admin'
+                adminTab: 'closing', // 'closing', 'wallets', 'vouchers', 'debts', 'reports', 'backup'
+                showAdminAuthModal: false,
+                adminPasswordInput: '',
+                currentDateStr: '',
+
+                // SYSTEM DATA
+                masterOpeningBalance: 30000,
+                drawerOpeningBalance: 0,
+                wallets: [],
+                transactions: [],
+                vouchers: [],
+                customers: [],
+                closingHistory: [],
+                editingClosing: null,
+                closingEditWalletBalances: {},
+                editingVoucherId: null,
+                editingTransactionRecord: null,
+                showTransactionModal: false,
+                transactionForm: { type: 'deposit', walletId: '', amount: 0, fee: 0, customerName: '', lastThree: '', datetime: '' },
+                showBackupPreview: false,
+                pendingBackup: null,
+                backupDirectoryHandle: null,
+                backupDirectoryStatus: 'اختر مجلد C:\\Cash ليتم حفظ نسخة مؤرخة تلقائياً بعد كل عملية حفظ.',
+
+                // CASHIER FORM STATES
+                pinnedDepositWalletId: null,
+                pinnedWithdrawWalletId: null,
+                cashierDeposit: { walletId: '', amount: null, fee: null, customerName: '', lastThree: '' },
+                cashierWithdraw: { walletId: '', amount: null, fee: null, customerName: '', lastThree: '' },
+                cashierSearch: '',
+
+                // SHIFT CLOSING INPUTS
+                closingInputs: { actualDrawerCash: null, walletBalances: {} },
+
+                // MODAL STATES & FORMS
+                showWalletModal: false,
+                editingWalletId: null,
+                walletForm: { name: '', phone: '', type: 'Vodafone Cash', nationalId: '', birthDate: '', openingBalance: 0 },
+
+                showCustomerModal: false,
+                editingCustomerId: null,
+                customerForm: { name: '', phone: '' },
+
+                voucherForm: { type: 'receipt', customerId: '', amount: null, notes: '', datetime: '' },
+                voucherSearch: '',
+
+                showStatementModal: false,
+                selectedCustomer: {},
+                selectedCustomerVouchers: [],
+
+                reportFilter: { fromDate: '', toDate: '' },
+                reportResult: { totalFees: 0, depositVolume: 0, withdrawVolume: 0, count: 0, receiptVouchers: 0, paymentVouchers: 0 },
+                walletReportFilter: { walletId: '', fromDate: '', toDate: '' },
+                walletReportResult: { totalFees: 0, depositVolume: 0, withdrawVolume: 0, count: 0 },
+
+                receiptData: {},
+
+                initApp() {
+                    this.updateDateStr();
+                    this.loadDataFromStorage();
+                    this.initSampleDataIfEmpty();
+                    this.reportFilter.fromDate = new Date().toISOString().split('T')[0];
+                    this.reportFilter.toDate = new Date().toISOString().split('T')[0];
+                    this.walletReportFilter.fromDate = this.reportFilter.fromDate;
+                    this.walletReportFilter.toDate = this.reportFilter.toDate;
+                    this.restoreBackupDirectoryHandle();
+                    this.$nextTick(() => { lucide.createIcons(); });
+                },
+
+                updateDateStr() {
+                    const now = new Date();
+                    this.currentDateStr = now.toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
+                },
+
+                getNowDateTimeString() {
+                    const now = new Date();
+                    return now.toISOString().replace('T', ' ').substring(0, 19);
+                },
+
+                get activeWallets() {
+                    return this.wallets;
+                },
+
+                get debtorsList() {
+                    return this.customers.filter(c => c.balance > 0);
+                },
+
+                get creditorsList() {
+                    return this.customers.filter(c => c.balance < 0);
+                },
+
+                get walletReportTransactions() {
+                    const { walletId, fromDate, toDate } = this.walletReportFilter;
+                    if (!walletId) return [];
+                    return this.transactions.filter(t => {
+                        const date = (t.datetime || '').slice(0, 10);
+                        return t.walletId === walletId && (!fromDate || date >= fromDate) && (!toDate || date <= toDate);
+                    }).sort((a, b) => b.datetime.localeCompare(a.datetime));
+                },
+
+                get filteredReportTransactions() {
+                    return this.transactions.filter(t => {
+                        const date = (t.datetime || '').slice(0, 10);
+                        return (!this.reportFilter.fromDate || date >= this.reportFilter.fromDate) && (!this.reportFilter.toDate || date <= this.reportFilter.toDate);
+                    }).sort((a, b) => b.datetime.localeCompare(a.datetime));
+                },
+
+                formatMoney(amount) {
+                    if (amount === null || amount === undefined || isNaN(amount)) return '0.00';
+                    return Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                },
+
+                // LOCAL STORAGE & DATA EXPORT
+                saveAllData() {
+                    localStorage.setItem('skypro_wallets', JSON.stringify(this.wallets));
+                    localStorage.setItem('skypro_transactions', JSON.stringify(this.transactions));
+                    localStorage.setItem('skypro_vouchers', JSON.stringify(this.vouchers));
+                    localStorage.setItem('skypro_customers', JSON.stringify(this.customers));
+                    localStorage.setItem('skypro_closing_history', JSON.stringify(this.closingHistory));
+                    localStorage.setItem('skypro_master_opening', JSON.stringify(this.masterOpeningBalance));
+                    localStorage.setItem('skypro_drawer_opening', JSON.stringify(this.drawerOpeningBalance));
+                    localStorage.setItem('skypro_pinned_deposit', JSON.stringify(this.pinnedDepositWalletId));
+                    localStorage.setItem('skypro_pinned_withdraw', JSON.stringify(this.pinnedWithdrawWalletId));
+                    this.autoDownloadBackup();
+                },
+
+                loadDataFromStorage() {
+                    this.wallets = JSON.parse(localStorage.getItem('skypro_wallets')) || [];
+                    this.transactions = JSON.parse(localStorage.getItem('skypro_transactions')) || [];
+                    const transactionIds = new Set();
+                    this.transactions.forEach((transaction, index) => {
+                        if (!transaction.id || transactionIds.has(transaction.id)) transaction.id = `${transaction.id || 'tx'}_recovered_${index}`;
+                        transactionIds.add(transaction.id);
+                    });
+                    this.vouchers = JSON.parse(localStorage.getItem('skypro_vouchers')) || [];
+                    this.customers = JSON.parse(localStorage.getItem('skypro_customers')) || [];
+                    this.closingHistory = JSON.parse(localStorage.getItem('skypro_closing_history')) || [];
+                    this.masterOpeningBalance = JSON.parse(localStorage.getItem('skypro_master_opening')) ?? 30000;
+                    this.drawerOpeningBalance = JSON.parse(localStorage.getItem('skypro_drawer_opening')) ?? 0;
+                    this.pinnedDepositWalletId = JSON.parse(localStorage.getItem('skypro_pinned_deposit')) || null;
+                    this.pinnedWithdrawWalletId = JSON.parse(localStorage.getItem('skypro_pinned_withdraw')) || null;
+
+                    if (this.pinnedDepositWalletId) this.cashierDeposit.walletId = this.pinnedDepositWalletId;
+                    if (this.pinnedWithdrawWalletId) this.cashierWithdraw.walletId = this.pinnedWithdrawWalletId;
+                },
+
+                initSampleDataIfEmpty() {
+                    if (this.wallets.length === 0) {
+                        this.wallets = [
+                            { id: 'w1', name: 'فودافون المحل 1', phone: '01012345678', type: 'Vodafone Cash', nationalId: '29801011234567', birthDate: '1998-01-01', balance: 5000 },
+                            { id: 'w2', name: 'إنستا باي المحل', phone: '01198765432', type: 'InstaPay', nationalId: '29505051234567', birthDate: '1995-05-05', balance: 10000 },
+                            { id: 'w3', name: 'ماكينة فوري 1', phone: '01200000000', type: 'Fawry', nationalId: '29000000000000', birthDate: '1990-01-01', balance: 3000 }
+                        ];
+                        this.saveAllData();
+                    }
+                },
+
+                autoDownloadBackup() {
+                    if (this.backupDirectoryHandle) {
+                        this.writeBackupToDirectory().catch(() => {
+                            this.backupDirectoryStatus = 'تعذر حفظ النسخة في المجلد. أعد اختيار مجلد النسخ الاحتياطي.';
+                        });
+                    }
+                },
+
+                getBackupSnapshot() {
+                    return {
+                        masterOpeningBalance: this.masterOpeningBalance,
+                        drawerOpeningBalance: this.drawerOpeningBalance,
+                        wallets: this.wallets,
+                        transactions: this.transactions,
+                        vouchers: this.vouchers,
+                        customers: this.customers,
+                        closingHistory: this.closingHistory,
+                        backupDate: this.getNowDateTimeString()
+                    };
+                },
+
+                async chooseBackupDirectory() {
+                    if (!window.showDirectoryPicker) {
+                        this.backupDirectoryStatus = 'المتصفح لا يدعم اختيار مجلد مباشر؛ استخدم تنزيل نسخة JSON.';
+                        return;
+                    }
+                    try {
+                        this.backupDirectoryHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                        await this.persistBackupDirectoryHandle(this.backupDirectoryHandle);
+                        this.backupDirectoryStatus = 'تم اختيار مجلد النسخ. ستُنشأ نسخة جديدة بعد كل حفظ.';
+                        await this.writeBackupToDirectory();
+                    } catch (error) {
+                        if (error.name !== 'AbortError') this.backupDirectoryStatus = 'لم يتم منح إذن الكتابة للمجلد.';
+                    }
+                },
+
+                openBackupDirectoryDatabase() {
+                    return new Promise((resolve, reject) => {
+                        const request = indexedDB.open('skypro-backup-directory', 1);
+                        request.onupgradeneeded = () => request.result.createObjectStore('settings');
+                        request.onsuccess = () => resolve(request.result);
+                        request.onerror = () => reject(request.error);
+                    });
+                },
+
+                async persistBackupDirectoryHandle(handle) {
+                    const database = await this.openBackupDirectoryDatabase();
+                    await new Promise((resolve, reject) => {
+                        const request = database.transaction('settings', 'readwrite').objectStore('settings').put(handle, 'directory');
+                        request.onsuccess = resolve;
+                        request.onerror = () => reject(request.error);
+                    });
+                    database.close();
+                },
+
+                async restoreBackupDirectoryHandle() {
+                    if (!window.indexedDB || !window.showDirectoryPicker) return;
+                    try {
+                        const database = await this.openBackupDirectoryDatabase();
+                        const handle = await new Promise((resolve, reject) => {
+                            const request = database.transaction('settings', 'readonly').objectStore('settings').get('directory');
+                            request.onsuccess = () => resolve(request.result);
+                            request.onerror = () => reject(request.error);
+                        });
+                        database.close();
+                        if (!handle) return;
+                        const permission = await handle.queryPermission({ mode: 'readwrite' });
+                        if (permission === 'granted') {
+                            this.backupDirectoryHandle = handle;
+                            this.backupDirectoryStatus = 'تم استعادة مجلد النسخ؛ النسخ المؤرخة مفعلة.';
+                        } else {
+                            this.backupDirectoryStatus = 'أعد اختيار مجلد النسخ لمنح إذن الكتابة لهذه الجلسة.';
+                        }
+                    } catch (error) {
+                        this.backupDirectoryStatus = 'تعذر استعادة إذن مجلد النسخ؛ اختر المجلد مرة أخرى.';
+                    }
+                },
+
+                async writeBackupToDirectory() {
+                    if (!this.backupDirectoryHandle) return;
+                    const snapshot = this.getBackupSnapshot();
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                    const fileHandle = await this.backupDirectoryHandle.getFileHandle(`SkyPro_Backup_${timestamp}.json`, { create: true });
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(JSON.stringify(snapshot, null, 2));
+                    await writable.close();
+                    this.backupDirectoryStatus = `آخر نسخة محفوظة: ${snapshot.backupDate}`;
+                },
+
+                downloadBackupJSON() {
+                    const dataObj = this.getBackupSnapshot();
+                    const blob = new Blob([JSON.stringify(dataObj, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `SkyPro_Backup_${new Date().toISOString().slice(0,10)}_${Date.now()}.json`;
+                    a.click();
+                },
+
+                importBackupJSON(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const parsed = JSON.parse(e.target.result);
+                            if (!parsed || !Array.isArray(parsed.wallets) || !Array.isArray(parsed.transactions)) throw new Error('Invalid backup');
+                            this.pendingBackup = parsed;
+                            this.showBackupPreview = true;
+                        } catch (err) {
+                            alert('خطأ في قراءة ملف النسخة الاحتياطية');
+                        } finally {
+                            event.target.value = '';
+                        }
+                    };
+                    reader.readAsText(file);
+                },
+
+                restorePendingBackup() {
+                    if (!this.pendingBackup || !confirm('تأكيد الاسترجاع واستبدال البيانات الحالية؟')) return;
+                    const backup = this.pendingBackup;
+                    this.wallets = backup.wallets || [];
+                    this.transactions = backup.transactions || [];
+                    this.vouchers = backup.vouchers || [];
+                    this.customers = backup.customers || [];
+                    this.closingHistory = backup.closingHistory || [];
+                    this.masterOpeningBalance = backup.masterOpeningBalance ?? 30000;
+                    this.drawerOpeningBalance = backup.drawerOpeningBalance ?? 0;
+                    this.pendingBackup = null;
+                    this.showBackupPreview = false;
+                    this.saveAllData();
+                    alert('تم استرجاع النسخة الاحتياطية بنجاح');
+                },
+
+                // ADMIN AUTH
+                openAdminAuth() {
+                    this.adminPasswordInput = '';
+                    this.showAdminAuthModal = true;
+                },
+
+                verifyAdminPassword() {
+                    if (this.adminPasswordInput === '011002') {
+                        this.showAdminAuthModal = false;
+                        this.currentMode = 'admin';
+                    } else {
+                        alert('كلمة المرور غير صحيحة!');
+                    }
+                },
+
+                logoutAdmin() {
+                    this.currentMode = 'cashier';
+                },
+
+                // CASHIER LOGIC
+                togglePinWallet(type) {
+                    if (type === 'deposit') {
+                        this.pinnedDepositWalletId = (this.pinnedDepositWalletId === this.cashierDeposit.walletId) ? null : this.cashierDeposit.walletId;
+                    } else {
+                        this.pinnedWithdrawWalletId = (this.pinnedWithdrawWalletId === this.cashierWithdraw.walletId) ? null : this.cashierWithdraw.walletId;
+                    }
+                    this.saveAllData();
+                },
+
+                onDepositWalletChange() {},
+                onWithdrawWalletChange() {},
+
+                calculateDepositFee() {
+                    if (!this.cashierDeposit.amount) {
+                        this.cashierDeposit.fee = null;
+                        return;
+                    }
+                    this.cashierDeposit.fee = Math.round((this.cashierDeposit.amount * 0.005) * 100) / 100;
+                },
+
+                calculateWithdrawFee() {
+                    if (!this.cashierWithdraw.amount) {
+                        this.cashierWithdraw.fee = null;
+                        return;
+                    }
+                    this.cashierWithdraw.fee = Math.round((this.cashierWithdraw.amount * 0.01) * 100) / 100;
+                },
+
+                executeTransaction(type) {
+                    const form = type === 'deposit' ? this.cashierDeposit : this.cashierWithdraw;
+                    if (!form.walletId) return alert('برجاء اختيار المحفظة أولاً');
+                    if (!form.amount || form.amount <= 0) return alert('برجاء إدخال مبلغ صحيح');
+
+                    const wallet = this.wallets.find(w => w.id === form.walletId);
+                    if (!wallet) return;
+
+                    if (type === 'deposit') {
+                        if (wallet.balance < form.amount && !confirm('رصيد المحفظة أقل من مبلغ الإيداع للعميل. هل تريد المتابعة؟')) return;
+                        wallet.balance -= form.amount;
+                    } else {
+                        wallet.balance += form.amount;
+                    }
+
+                    const tx = {
+                        id: 'tx_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                        datetime: this.getNowDateTimeString(),
+                        type: type,
+                        walletId: form.walletId,
+                        amount: form.amount,
+                        fee: form.fee || 0,
+                        customerName: form.customerName || '',
+                        lastThree: form.lastThree || ''
+                    };
+
+                    this.transactions.unshift(tx);
+                    this.saveAllData();
+
+                    // Reset form amount
+                    form.amount = null;
+                    form.fee = null;
+                    form.customerName = '';
+                    form.lastThree = '';
+
+                    alert('تم تسجيل العملية بنجاح!');
+                },
+
+                editTransaction(transaction) {
+                    this.editingTransactionRecord = transaction;
+                    this.transactionForm = {
+                        type: transaction.type,
+                        walletId: transaction.walletId,
+                        amount: Number(transaction.amount || 0),
+                        fee: Number(transaction.fee || 0),
+                        customerName: transaction.customerName || '',
+                        lastThree: transaction.lastThree || '',
+                        datetime: (transaction.datetime || '').replace(' ', 'T').slice(0, 16)
+                    };
+                    this.showTransactionModal = true;
+                },
+
+                getWalletTransactionEffect(type, amount) {
+                    return type === 'deposit' ? -Number(amount || 0) : Number(amount || 0);
+                },
+
+                saveTransactionEdit() {
+                    const transaction = this.editingTransactionRecord;
+                    if (!transaction || !this.transactionForm.walletId || Number(this.transactionForm.amount) <= 0) return alert('راجع بيانات العملية');
+
+                    const oldWallet = this.wallets.find(wallet => wallet.id === transaction.walletId);
+                    const newWallet = this.wallets.find(wallet => wallet.id === this.transactionForm.walletId);
+                    const walletDeltas = new Map();
+                    if (oldWallet) walletDeltas.set(oldWallet.id, (walletDeltas.get(oldWallet.id) || 0) - this.getWalletTransactionEffect(transaction.type, transaction.amount));
+                    if (newWallet) walletDeltas.set(newWallet.id, (walletDeltas.get(newWallet.id) || 0) + this.getWalletTransactionEffect(this.transactionForm.type, this.transactionForm.amount));
+                    walletDeltas.forEach((delta, walletId) => {
+                        const wallet = this.wallets.find(item => item.id === walletId);
+                        if (wallet) wallet.balance += delta;
+                    });
+
+                    Object.assign(transaction, {
+                        ...this.transactionForm,
+                        amount: Number(this.transactionForm.amount),
+                        fee: Number(this.transactionForm.fee || 0),
+                        datetime: this.transactionForm.datetime.replace('T', ' ') + ':00'
+                    });
+                    this.showTransactionModal = false;
+                    this.editingTransactionRecord = null;
+                    this.saveAllData();
+                },
+
+                deleteTransaction(transaction) {
+                    if (typeof transaction !== 'object') transaction = this.transactions.find(item => item.id === transaction);
+                    if (!transaction || !confirm('حذف العملية سيحدّث رصيد الخط والتقارير. هل تريد المتابعة؟')) return;
+                    const wallet = this.wallets.find(item => item.id === transaction.walletId);
+                    if (wallet) wallet.balance -= this.getWalletTransactionEffect(transaction.type, transaction.amount);
+                    this.transactions = this.transactions.filter(item => item !== transaction);
+                    this.saveAllData();
+                },
+
+                getTodayTransactions() {
+                    const todayStr = new Date().toISOString().slice(0,10);
+                    return this.transactions.filter(t => t.datetime.startsWith(todayStr));
+                },
+
+                get filteredTodayTransactions() {
+                    let list = this.getTodayTransactions();
+                    if (this.cashierSearch) {
+                        const q = this.cashierSearch.toLowerCase();
+                        list = list.filter(t => 
+                            (t.customerName && t.customerName.toLowerCase().includes(q)) ||
+                            (t.lastThree && t.lastThree.includes(q)) ||
+                            this.getWalletName(t.walletId).toLowerCase().includes(q)
+                        );
+                    }
+                    return list;
+                },
+
+                getWalletName(id) {
+                    const w = this.wallets.find(x => x.id === id);
+                    return w ? w.name : 'محفظة محذوفة';
+                },
+
+                getCustomerName(id) {
+                    const c = this.customers.find(x => x.id === id);
+                    return c ? c.name : 'عميل محذوف';
+                },
+
+                // SHIFT CLOSING CALCULATIONS
+                getLastApprovedClosingDate() {
+                    return this.closingHistory.reduce((latest, record) => !latest || record.datetime > latest ? record.datetime : latest, null);
+                },
+
+                calculateCurrentShiftProfit() {
+                    const lastClosing = this.getLastApprovedClosingDate();
+                    let activeTx = this.transactions;
+                    if (lastClosing) {
+                        activeTx = this.transactions.filter(t => t.datetime > lastClosing);
+                    }
+                    return activeTx.reduce((sum, t) => sum + (t.fee || 0), 0);
+                },
+
+                calculateExpectedDrawerCash() {
+                    const lastClosing = this.getLastApprovedClosingDate();
+                    let activeTx = this.transactions;
+                    let activeVouchers = this.vouchers;
+
+                    let baseCash = this.drawerOpeningBalance || 0;
+                    const latestClosing = this.closingHistory.reduce((latest, record) => !latest || record.datetime > latest.datetime ? record : latest, null);
+                    if (latestClosing) baseCash = latestClosing.actualDrawer || 0;
+
+                    if (lastClosing) {
+                        activeTx = this.transactions.filter(t => t.datetime > lastClosing);
+                        activeVouchers = this.vouchers.filter(v => v.datetime > lastClosing);
+                    }
+
+                    let cash = baseCash;
+                    activeTx.forEach(t => {
+                        if (t.type === 'deposit') {
+                            cash += (t.amount + t.fee);
+                        } else if (t.type === 'withdraw') {
+                            cash -= Math.max(0, (t.amount - t.fee));
+                        }
+                    });
+
+                    activeVouchers.forEach(v => {
+                        if (v.type === 'receipt') cash += v.amount;
+                        else if (v.type === 'payment') cash -= v.amount;
+                    });
+
+                    return cash;
+                },
+
+                saveMasterOpeningBalance() {
+                    this.saveAllData();
+                },
+
+                calculateFullAudit() {
+                    const expectedDrawer = this.calculateExpectedDrawerCash();
+                    const actualDrawer = this.closingInputs.actualDrawerCash === null || this.closingInputs.actualDrawerCash === '' || this.closingInputs.actualDrawerCash === undefined
+                        ? expectedDrawer
+                        : Number(this.closingInputs.actualDrawerCash);
+                    const drawerVariance = actualDrawer - expectedDrawer;
+
+                    let totalActualWallets = 0;
+                    let totalExpectedWallets = 0;
+                    let walletDetails = [];
+
+                    this.wallets.forEach(w => {
+                        const exp = w.balance || 0;
+                        const act = this.closingInputs.walletBalances[w.id] !== undefined && this.closingInputs.walletBalances[w.id] !== null ? Number(this.closingInputs.walletBalances[w.id]) : exp;
+                        const varVal = act - exp;
+                        totalExpectedWallets += exp;
+                        totalActualWallets += act;
+                        walletDetails.push({ id: w.id, name: w.name, expected: exp, actual: act, variance: varVal });
+                    });
+
+                    const walletsVariance = totalActualWallets - totalExpectedWallets;
+
+                    const totalDebts = this.customers.reduce((sum, c) => sum + (c.balance || 0), 0);
+
+                    const totalActualAssets = actualDrawer + totalActualWallets;
+                    const shiftProfit = this.calculateCurrentShiftProfit();
+                    const totalExpectedAssets = (this.masterOpeningBalance || 0) + shiftProfit;
+
+                    const variance = totalActualAssets + totalDebts - totalExpectedAssets;
+
+                    return {
+                        totalActualAssets,
+                        totalExpectedAssets,
+                        totalDebts,
+                        drawerVariance,
+                        walletsVariance,
+                        walletDetails,
+                        variance
+                    };
+                },
+
+                approveAndSaveShiftClosing(audit) {
+                    if (this.closingInputs.actualDrawerCash === null) return alert('برجاء إدخال كاش الدرج الفعلي أولاً');
+
+                    const closingRecord = {
+                        id: 'close_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                        datetime: this.getNowDateTimeString(),
+                        openingBalance: this.masterOpeningBalance,
+                        profit: this.calculateCurrentShiftProfit(),
+                        actualDrawer: this.closingInputs.actualDrawerCash,
+                        expectedDrawer: this.calculateExpectedDrawerCash(),
+                        totalActualAssets: audit.totalActualAssets,
+                        totalExpectedAssets: audit.totalExpectedAssets,
+                        totalDebts: audit.totalDebts,
+                        variance: audit.variance,
+                        walletInputs: { ...this.closingInputs.walletBalances },
+                        walletDetails: audit.walletDetails.map(item => ({ ...item }))
+                    };
+
+                    this.closingHistory.unshift(closingRecord);
+
+                    // Update wallet balances with actual inputs if provided
+                    this.wallets.forEach(w => {
+                        if (this.closingInputs.walletBalances[w.id] !== undefined && this.closingInputs.walletBalances[w.id] !== null) {
+                            w.balance = Number(this.closingInputs.walletBalances[w.id]);
+                        }
+                    });
+
+                    this.masterOpeningBalance = audit.totalActualAssets + audit.totalDebts;
+
+                    this.closingInputs.actualDrawerCash = null;
+                    this.closingInputs.walletBalances = {};
+
+                    this.saveAllData();
+                    alert('تم اعتماد وتقفيل الشيفت بنجاح!');
+                },
+
+                deleteClosingRecord(id) {
+                    if (confirm('هل أنت تأكد من حذف هذا التقفيل؟')) {
+                        const deletedRecord = this.closingHistory.find(record => record.id === id);
+                        this.closingHistory = this.closingHistory.filter(c => c.id !== id);
+                        this.closingHistory.sort((a, b) => b.datetime.localeCompare(a.datetime));
+                        if (this.closingHistory.length > 0) {
+                            const latest = this.closingHistory[0];
+                            this.masterOpeningBalance = Number(latest.totalActualAssets ?? (latest.actualDrawer + this.wallets.reduce((sum, wallet) => sum + Number(latest.walletInputs?.[wallet.id] ?? wallet.balance), 0))) + Number(latest.totalDebts || 0);
+                            this.wallets.forEach(wallet => {
+                                const actual = latest.walletDetails?.find(item => item.id === wallet.id)?.actual ?? latest.walletInputs?.[wallet.id];
+                                if (actual !== undefined) wallet.balance = Number(actual);
+                            });
+                        } else if (deletedRecord) {
+                            this.masterOpeningBalance = Number(deletedRecord.openingBalance || 0);
+                            this.wallets.forEach(wallet => {
+                                const expected = deletedRecord.walletDetails?.find(item => item.id === wallet.id)?.expected;
+                                if (expected !== undefined) wallet.balance = Number(expected);
+                            });
+                        }
+                        this.saveAllData();
+                    }
+                },
+
+                editClosingRecord(record) {
+                    this.editingClosing = { ...record, datetimeInput: (record.datetime || '').replace(' ', 'T').slice(0, 16) };
+                    const savedDetails = record.walletDetails || [];
+                    this.closingEditWalletBalances = Object.fromEntries(this.wallets.map(wallet => {
+                        const saved = savedDetails.find(item => item.id === wallet.id);
+                        return [wallet.id, Number(saved?.actual ?? record.walletInputs?.[wallet.id] ?? wallet.balance ?? 0)];
+                    }));
+                    this.$nextTick(() => document.getElementById('closingEditor')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+                },
+
+                saveClosingEdit() {
+                    if (!this.editingClosing) return;
+                    const record = this.closingHistory.find(item => item.id === this.editingClosing.id);
+                    if (!record) return;
+
+                    const walletDetails = this.wallets.map(wallet => {
+                        const actual = Number(this.closingEditWalletBalances[wallet.id] || 0);
+                        const expected = Number(record.walletDetails?.find(item => item.id === wallet.id)?.expected ?? actual);
+                        return { id: wallet.id, name: wallet.name, expected, actual, variance: actual - expected };
+                    });
+                    const actualDrawer = Number(this.editingClosing.actualDrawer || 0);
+                    const totalActualAssets = actualDrawer + walletDetails.reduce((sum, item) => sum + item.actual, 0);
+                    const openingBalance = Number(this.editingClosing.openingBalance || 0);
+                    const profit = Number(this.editingClosing.profit || 0);
+                    const totalDebts = Number(this.editingClosing.totalDebts ?? record.totalDebts ?? 0);
+                    const totalExpectedAssets = openingBalance + profit;
+
+                    Object.assign(record, {
+                        openingBalance,
+                        profit,
+                        actualDrawer,
+                        datetime: this.editingClosing.datetimeInput ? this.editingClosing.datetimeInput.replace('T', ' ') + ':00' : record.datetime,
+                        totalActualAssets,
+                        totalExpectedAssets,
+                        walletInputs: { ...this.closingEditWalletBalances },
+                        walletDetails,
+                        variance: totalActualAssets + totalDebts - totalExpectedAssets
+                    });
+                    this.closingHistory.sort((a, b) => b.datetime.localeCompare(a.datetime));
+
+                    const latestClosing = this.closingHistory[0];
+                    if (latestClosing) {
+                        this.masterOpeningBalance = Number(latestClosing.totalActualAssets ?? 0) + Number(latestClosing.totalDebts || 0);
+                        this.wallets.forEach(wallet => {
+                            const actual = latestClosing.walletDetails?.find(item => item.id === wallet.id)?.actual ?? latestClosing.walletInputs?.[wallet.id];
+                            if (actual !== undefined) wallet.balance = Number(actual);
+                        });
+                    }
+
+                    this.editingClosing = null;
+                    this.closingEditWalletBalances = {};
+                    this.saveAllData();
+                    alert('تم حفظ تعديل التقفيلة');
+                },
+
+                // WALLETS CRUD
+                openWalletModal() {
+                    this.editingWalletId = null;
+                    this.walletForm = { name: '', phone: '', type: 'Vodafone Cash', nationalId: '', birthDate: '', openingBalance: 0 };
+                    this.showWalletModal = true;
+                },
+
+                editWallet(w) {
+                    this.editingWalletId = w.id;
+                    this.walletForm = { ...w };
+                    this.showWalletModal = true;
+                },
+
+                saveWallet() {
+                    if (!this.walletForm.name || !this.walletForm.phone || !this.walletForm.nationalId || !this.walletForm.birthDate) {
+                        return alert('جميع البيانات إجبارية!');
+                    }
+
+                    if (this.editingWalletId) {
+                        const w = this.wallets.find(x => x.id === this.editingWalletId);
+                        if (w) Object.assign(w, this.walletForm);
+                    } else {
+                        const newW = {
+                            id: 'w_' + Date.now(),
+                            ...this.walletForm,
+                            balance: Number(this.walletForm.openingBalance || 0)
+                        };
+                        this.wallets.push(newW);
+                    }
+
+                    this.showWalletModal = false;
+                    this.saveAllData();
+                },
+
+                deleteWallet(id) {
+                    if (confirm('هل أنت تأكد من حذف هذه المحفظة؟')) {
+                        this.wallets = this.wallets.filter(w => w.id !== id);
+                        this.saveAllData();
+                    }
+                },
+
+                // VOUCHERS CRUD
+                saveVoucher() {
+                    if (!this.voucherForm.customerId) return alert('اختر العميل إجبارياً');
+                    if (!this.voucherForm.amount || this.voucherForm.amount <= 0) return alert('أدخل مبلغ صحياً');
+                    if (!this.voucherForm.notes) return alert('أدخل السبب/الملاحظة إجبارياً');
+
+                    const customer = this.customers.find(c => c.id === this.voucherForm.customerId);
+                    if (!customer) return;
+
+                    const existing = this.vouchers.find(voucher => voucher.id === this.editingVoucherId);
+                    if (existing) {
+                        const oldCustomer = this.customers.find(item => item.id === existing.customerId);
+                        if (oldCustomer) oldCustomer.balance -= (existing.type === 'payment' ? 1 : -1) * Number(existing.amount || 0);
+                        Object.assign(existing, {
+                            type: this.voucherForm.type,
+                            customerId: this.voucherForm.customerId,
+                            amount: Number(this.voucherForm.amount),
+                            notes: this.voucherForm.notes,
+                            datetime: this.voucherForm.datetime ? this.voucherForm.datetime.replace('T', ' ') + ':00' : existing.datetime
+                        });
+                    } else {
+                        const voucher = {
+                            id: 'v_' + Date.now(),
+                            datetime: this.voucherForm.datetime ? this.voucherForm.datetime.replace('T', ' ') + ':00' : this.getNowDateTimeString(),
+                            type: this.voucherForm.type,
+                            customerId: this.voucherForm.customerId,
+                            amount: Number(this.voucherForm.amount),
+                            notes: this.voucherForm.notes
+                        };
+                        this.vouchers.unshift(voucher);
+                    }
+
+                    const saved = this.vouchers.find(voucher => voucher.id === this.editingVoucherId) || this.vouchers[0];
+                    const savedCustomer = this.customers.find(item => item.id === saved.customerId);
+                    if (savedCustomer) savedCustomer.balance = (savedCustomer.balance || 0) + (saved.type === 'payment' ? 1 : -1) * Number(saved.amount || 0);
+                    this.editingVoucherId = null;
+                    this.voucherForm = { type: 'receipt', customerId: '', amount: null, notes: '', datetime: '' };
+                    this.saveAllData();
+                    alert(existing ? 'تم حفظ تعديل السند' : 'تم حفظ السند بنجاح!');
+                },
+
+                editVoucher(voucher) {
+                    this.editingVoucherId = voucher.id;
+                    this.voucherForm = {
+                        type: voucher.type,
+                        customerId: voucher.customerId,
+                        amount: Number(voucher.amount || 0),
+                        notes: voucher.notes || '',
+                        datetime: (voucher.datetime || '').replace(' ', 'T').slice(0, 16)
+                    };
+                    this.adminTab = 'vouchers';
+                },
+
+                cancelVoucherEdit() {
+                    this.editingVoucherId = null;
+                    this.voucherForm = { type: 'receipt', customerId: '', amount: null, notes: '', datetime: '' };
+                },
+
+                calculateVoucherTotals() {
+                    let receipts = 0;
+                    let payments = 0;
+                    this.vouchers.forEach(v => {
+                        if (v.type === 'receipt') receipts += v.amount;
+                        else if (v.type === 'payment') payments += v.amount;
+                    });
+                    return { receipts, payments };
+                },
+
+                get filteredVouchers() {
+                    if (!this.voucherSearch) return this.vouchers;
+                    const q = this.voucherSearch.toLowerCase();
+                    return this.vouchers.filter(v => 
+                        v.notes.toLowerCase().includes(q) ||
+                        this.getCustomerName(v.customerId).toLowerCase().includes(q)
+                    );
+                },
+
+                deleteVoucher(id) {
+                    if (confirm('هل أنت تأكد من حذف هذا السند؟')) {
+                        const voucher = this.vouchers.find(item => item.id === id);
+                        const customer = this.customers.find(item => item.id === voucher?.customerId);
+                        if (voucher && customer) customer.balance -= (voucher.type === 'payment' ? 1 : -1) * Number(voucher.amount || 0);
+                        this.vouchers = this.vouchers.filter(v => v.id !== id);
+                        this.saveAllData();
+                    }
+                },
+
+                // CUSTOMERS CRUD
+                openCustomerModal() {
+                    this.editingCustomerId = null;
+                    this.customerForm = { name: '', phone: '' };
+                    this.showCustomerModal = true;
+                },
+
+                saveCustomer() {
+                    if (!this.customerForm.name || !this.customerForm.phone) return alert('أدخل اسم وهاتف العميل');
+                    if (this.editingCustomerId) {
+                        const customer = this.customers.find(item => item.id === this.editingCustomerId);
+                        if (customer) Object.assign(customer, this.customerForm);
+                    } else {
+                        this.customers.push({
+                            id: 'c_' + Date.now(),
+                            name: this.customerForm.name,
+                            phone: this.customerForm.phone,
+                            balance: 0
+                        });
+                    }
+                    this.editingCustomerId = null;
+                    this.showCustomerModal = false;
+                    this.saveAllData();
+                },
+
+                editCustomer(customer) {
+                    this.editingCustomerId = customer.id;
+                    this.customerForm = { name: customer.name, phone: customer.phone };
+                    this.showCustomerModal = true;
+                },
+
+                deleteCustomer(id) {
+                    if (this.vouchers.some(voucher => voucher.customerId === id)) return alert('لا يمكن حذف عميل له سندات مسجلة؛ عدّل أو احذف سنداته أولاً.');
+                    if (!confirm('حذف هذا العميل؟')) return;
+                    this.customers = this.customers.filter(customer => customer.id !== id);
+                    this.saveAllData();
+                },
+
+                viewCustomerStatement(c) {
+                    this.selectedCustomer = c;
+                    this.selectedCustomerVouchers = this.vouchers.filter(v => v.customerId === c.id);
+                    this.showStatementModal = true;
+                },
+
+                // REPORTS
+                generateReport() {
+                    let fees = 0, dep = 0, wd = 0;
+                    const list = this.filteredReportTransactions;
+                    list.forEach(t => {
+                        fees += (t.fee || 0);
+                        if (t.type === 'deposit') dep += t.amount;
+                        else wd += t.amount;
+                    });
+
+                    const vouchers = this.vouchers.filter(v => {
+                        const date = (v.datetime || '').slice(0, 10);
+                        return (!this.reportFilter.fromDate || date >= this.reportFilter.fromDate) && (!this.reportFilter.toDate || date <= this.reportFilter.toDate);
+                    });
+                    this.reportResult = {
+                        totalFees: fees,
+                        depositVolume: dep,
+                        withdrawVolume: wd,
+                        count: list.length,
+                        receiptVouchers: vouchers.filter(v => v.type === 'receipt').reduce((sum, v) => sum + Number(v.amount || 0), 0),
+                        paymentVouchers: vouchers.filter(v => v.type === 'payment').reduce((sum, v) => sum + Number(v.amount || 0), 0)
+                    };
+                },
+
+                generateWalletReport() {
+                    const list = this.walletReportTransactions;
+                    this.walletReportResult = {
+                        count: list.length,
+                        totalFees: list.reduce((sum, item) => sum + Number(item.fee || 0), 0),
+                        depositVolume: list.filter(item => item.type === 'deposit').reduce((sum, item) => sum + Number(item.amount || 0), 0),
+                        withdrawVolume: list.filter(item => item.type === 'withdraw').reduce((sum, item) => sum + Number(item.amount || 0), 0)
+                    };
+                },
+
+                getWalletBalance(id) {
+                    return this.wallets.find(wallet => wallet.id === id)?.balance || 0;
+                },
+
+                printReceipt(tx) {
+                    this.receiptData = tx;
+                    this.$nextTick(() => {
+                        window.print();
+                    });
+                }
+            };
+        }
+    </script>
+</body>
+</html>
